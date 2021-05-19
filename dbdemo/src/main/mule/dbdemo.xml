@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ef7e2f06-bfa0-4bf7-b704-01f5063ebb63" >
+		<http:listener-connection host="0.0.0.0" port="8082" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="8752143c-43d0-4af7-927b-8bf676fb69e6" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="Manasvi@123" database="mydb" />
+	</db:config>
+	<flow name="dbdemoFlow" doc:id="6bebb91d-cd96-4a14-a3bd-4f642696b0c5" >
+		<http:listener doc:name="Get" doc:id="16c002f3-8282-4121-ab3d-823ed2f99913" config-ref="HTTP_Listener_config" allowedMethods="GET" path="/dbdemo/getemp"/>
+		<db:select doc:name="FetchEmployees" doc:id="427ee9f4-2aba-4c0a-af5f-7cc6f24e5c83" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from employee;]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="3b7be5dd-61ca-44e0-bede-20a463102c05" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="dbdemoFlow1" doc:id="5e8920af-5c5d-40d7-9beb-7ca24b942a06" >
+		<http:listener doc:name="AddEmpListener" doc:id="cc7a1f0e-a86a-42cf-bd4c-812ee60575f9" config-ref="HTTP_Listener_config" path="/dbdemo/addemp" allowedMethods="POST"/>
+		<db:insert doc:name="Insert" doc:id="eefdd1cc-2bc5-4f91-b74e-af3645e3bb3b" config-ref="Database_Config">
+			<db:sql ><![CDATA[insert into employee(eid,ename) values(:id,:name);]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	id: payload.id,
+	name: payload.name
+}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="Transform Message" doc:id="792a526d-b414-4bbf-a683-1bf0f1a3a7b2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="dbdemoFlow2" doc:id="64100088-199b-47bb-be76-92bb35689327" >
+		<http:listener doc:name="FetchEmpById" doc:id="8893942c-da34-4c0c-9b37-9e2251db47e4" config-ref="HTTP_Listener_config" path="/dbdemo/getemp/{id}" allowedMethods="GET"/>
+		<db:select doc:name="SelectById" doc:id="ea38412c-75e2-403e-8a06-c8da3759f575" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from employee where eid=:id;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	id: attributes.uriParams.id
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="aafc777b-2397-4b2c-9dcb-1d44397ff137" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="dbdemoFlow3" doc:id="3e8b25a4-983a-422f-af33-c796707fdcc5" >
+		<http:listener doc:name="UpsertEmp" doc:id="1b71d126-bf5d-4318-925d-b17e8e6435bb" config-ref="HTTP_Listener_config" path="/dbdemo/upsertemp" allowedMethods="PUT"/>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="4b3e0956-fafe-4ca3-ac4a-328ac7937d8b" variableName="vInputPayload"/>
+		<logger level="INFO" doc:name="Logger" doc:id="225fa216-5c97-4ed6-b9ef-ba0c38dd72ed" message="#[vars.vInputPayload]"/>
+		<db:select doc:name="Select" doc:id="c4f2f8f3-7712-4169-b5bd-18a3506e2936" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from employee where eid= :id;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	id: vars.vInputPayload.id
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="254c6ed2-5998-4fc2-a3f3-8bcbb5185f56" >
+			<when expression="#[payload.eid != null]">
+				<logger level="INFO" doc:name="Logger" doc:id="5f569070-afcb-4d23-8e29-39c9d796e13c" message='#[payload]'/>
+				<db:update doc:name="Update" doc:id="c3eaa0c9-1946-462f-9c1a-6a0787dcb112" config-ref="Database_Config">
+					<db:sql ><![CDATA[update employee set ename=:name where eid=:id;]]></db:sql>
+					<db:input-parameters ><![CDATA[#[{
+	id: vars.vInputPayload.id,
+	name: vars.vInputPayload.name
+}]]]></db:input-parameters>
+				</db:update>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="d19c2af1-7a0f-42a9-9abc-e97d0ff0eeff" message='"-------------in insert block------------"'/>
+				<logger level="INFO" doc:name="Logger" doc:id="278e5f34-59d4-4463-9e1a-27d9ef2096e2" message="#[payload.id]" />
+				<db:insert doc:name="Insert" doc:id="37e5cfb2-290a-47a5-949a-4ccde03eae9c" config-ref="Database_Config">
+					<db:sql ><![CDATA[insert into employee(eid,ename) values (:id,:name);]]></db:sql>
+					<db:input-parameters ><![CDATA[#[{
+	id: vars.vInputPayload.id,
+	name: vars.vInputPayload.name
+}]]]></db:input-parameters>
+				</db:insert>
+				<logger level="INFO" doc:name="Logger" doc:id="962a26c1-f1d7-44f4-8b8e-89c66519944e" message="#[payload]"/>
+				<ee:transform doc:name="Transform Message" doc:id="80835a1e-c52f-482f-b524-902cc4532e9a" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="da65932f-2f46-469f-ac23-d57d226c0b12" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
